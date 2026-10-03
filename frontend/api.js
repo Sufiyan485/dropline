@@ -3,7 +3,7 @@
 // Local dev talks to uvicorn; anywhere else uses your Render URL (edit this one line after deploying).
 const API = ["", "localhost", "127.0.0.1"].includes(location.hostname)
   ? "http://127.0.0.1:8000"
-  : "https://YOUR-SERVICE.onrender.com";
+  : "https://dropline-kq9g.onrender.com";
 
 async function req(path, opt = {}, ms = 20000) {
   const c = new AbortController(), t = setTimeout(() => c.abort(), ms);
