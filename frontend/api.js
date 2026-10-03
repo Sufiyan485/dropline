@@ -1,9 +1,9 @@
 "use strict";
 /* ============ Config & API layer (loaded before script.js) ============ */
 // Local dev talks to uvicorn; anywhere else uses your Render URL (edit this one line after deploying).
-const API = ["", "localhost", "127.0.0.1"].includes(location.hostname)
-  ? "http://127.0.0.1:8000"
-  : "https://dropline-kq9g.onrender.com";
+const H = location.hostname, LAN = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(H);
+const LOCAL = LAN || ["", "localhost", "127.0.0.1", "[::1]"].includes(H);
+const API = LOCAL ? `http://${LAN ? H : "127.0.0.1"}:8000` : "https://dropline-kq9g.onrender.com";
 
 async function req(path, opt = {}, ms = 20000) {
   const c = new AbortController(), t = setTimeout(() => c.abort(), ms);

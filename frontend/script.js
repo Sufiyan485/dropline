@@ -47,7 +47,7 @@ async function closeWake() {
 function setStatus(s, t) { const p = $("#status"); p.dataset.s = s; $("span", p).textContent = t; }
 
 // Polls GET / until it answers. Cold-start responses usually lack CORS headers, so a failed fetch just means "not yet".
-async function wake() {
+async function wakeLoop() {
   T0 = Date.now(); let n = 0; setStatus("wait", "Waking server");
   if (API.includes("YOUR-SERVICE")) { // deployed build with no backend address configured
     if ($("#wake").hidden) openWake(); clearInterval(tick);
@@ -62,12 +62,20 @@ async function wake() {
       if (!$("#wake").hidden) await closeWake();
       api.insights().catch(() => {}); return true;
     } catch (e) {
-      $("#wk-d").textContent = `Trying ${API} · ${e.kind === "http" ? "HTTP " + e.status : "no response"}` + (LOCAL ? " · is uvicorn running?" : "");
+      $("#wk-d").textContent = `Trying ${API} · ${e.kind === "http" ? "HTTP " + e.status : "no response"}` + (API.startsWith("http://") ? " · is uvicorn running?" : "");
       await sleep(2500);
     }
   }
   clearTimeout(t); if ($("#wake").hidden) openWake(); clearInterval(tick);
   $("#wt").textContent = "Couldn't reach the server"; $("#wk-err").hidden = false; setStatus("off", "API offline"); return false;
+}
+async function wake() {
+  try { return await wakeLoop(); }
+  catch (e) {
+    console.error(e); if ($("#wake").hidden) openWake(); clearInterval(tick);
+    $("#wt").textContent = "Couldn't connect"; $("#wk-em").textContent = "Unexpected error: " + (e && e.message || e);
+    $("#wk-err").hidden = false; setStatus("off", "API offline"); return false;
+  }
 }
 let ready;
 $("#wk-retry").onclick = () => { $("#wk-err").hidden = true; openWake(); ready = wake(); };
