@@ -9,7 +9,7 @@ async function req(path, opt = {}, ms = 20000) {
   const c = new AbortController(), t = setTimeout(() => c.abort(), ms);
   try {
     const r = await fetch(API + path, { ...opt, signal: c.signal });
-    let d = null; try { d = await r.json(); } catch {}
+    let d = null; try { d = await r.json(); } catch { }
     if (!r.ok) throw { kind: "http", status: r.status, data: d };
     return d;
   } catch (e) { throw e.kind ? e : { kind: "network" }; }

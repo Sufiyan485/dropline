@@ -1,61 +1,96 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dropline — Customer churn forecast</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='18' width='6' height='10' rx='2' fill='%23b8f36b'/%3E%3Crect x='13' y='11' width='6' height='17' rx='2' fill='%23b8f36b'/%3E%3Crect x='23' y='5' width='5' height='23' rx='2' fill='none' stroke='%23ff6b4a' stroke-width='2' stroke-dasharray='3 3'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dropline — Customer churn forecast</title>
+  <link rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='18' width='6' height='10' rx='2' fill='%23b8f36b'/%3E%3Crect x='13' y='11' width='6' height='17' rx='2' fill='%23b8f36b'/%3E%3Crect x='23' y='5' width='5' height='23' rx='2' fill='none' stroke='%23ff6b4a' stroke-width='2' stroke-dasharray='3 3'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="logo" viewBox="0 0 32 32"><rect x="4" y="18" width="6" height="10" rx="2" fill="currentColor"/><rect x="13" y="11" width="6" height="17" rx="2" fill="currentColor"/><rect x="23" y="5" width="5" height="23" rx="2" fill="none" stroke="#ff6b4a" stroke-width="2" stroke-dasharray="3 3"/></symbol></svg>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="logo" viewBox="0 0 32 32">
+      <rect x="4" y="18" width="6" height="10" rx="2" fill="currentColor" />
+      <rect x="13" y="11" width="6" height="17" rx="2" fill="currentColor" />
+      <rect x="23" y="5" width="5" height="23" rx="2" fill="none" stroke="#ff6b4a" stroke-width="2"
+        stroke-dasharray="3 3" />
+    </symbol>
+  </svg>
 
-<div id="wake" hidden role="dialog" aria-modal="true" aria-labelledby="wt">
-  <div class="wk">
-    <svg class="scan" viewBox="0 0 32 32" aria-hidden="true"><rect class="b1" x="4" y="18" width="6" height="10" rx="2"/><rect class="b2" x="13" y="11" width="6" height="17" rx="2"/><rect class="b3" x="22" y="4" width="6" height="24" rx="2"/></svg>
-    <h2 id="wt">Loading<span class="dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></h2>
-    <div id="wk-err" hidden><p id="wk-em">The server didn't answer. It may be offline or still starting.</p><p id="wk-d" class="mono mut sm"></p><button id="wk-retry" class="lnk" type="button">Try again</button></div>
+  <div id="wake" hidden role="dialog" aria-modal="true" aria-labelledby="wt">
+    <div class="wk">
+      <svg class="scan" viewBox="0 0 32 32" aria-hidden="true">
+        <rect class="b1" x="4" y="18" width="6" height="10" rx="2" />
+        <rect class="b2" x="13" y="11" width="6" height="17" rx="2" />
+        <rect class="b3" x="22" y="4" width="6" height="24" rx="2" />
+      </svg>
+      <h2 id="wt">Loading<span class="dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></h2>
+      <div id="wk-err" hidden>
+        <p id="wk-em">The server didn't answer. It may be offline or still starting.</p>
+        <p id="wk-d" class="mono mut sm"></p><button id="wk-retry" class="lnk" type="button">Try again</button>
+      </div>
+    </div>
   </div>
-</div>
 
-<div id="app">
-  <header class="top">
-    <a class="brand" href="#predict"><svg width="26" height="26" aria-hidden="true"><use href="#logo"/></svg><b>Dropline</b></a>
-    <nav id="tabs" aria-label="Sections"><a href="#predict">Predict</a><a href="#dataset">Dataset</a><a href="#model">Model</a></nav>
-    <span id="status" class="pill" data-s="wait" role="status"><i></i><span>Connecting</span></span>
-  </header>
-  <main>
-    <section id="predict" class="view">
-      <div class="intro">
-        <h1>Will this customer stay?</h1>
-        <p class="mut">Describe a telecom customer and the model returns a churn probability.</p>
-        <p class="ex mut">Start from an example: <button type="button" class="lnk" data-ex="risky">Likely leaver</button> <button type="button" class="lnk" data-ex="loyal">Loyal customer</button></p>
-      </div>
-      <div class="split">
-        <form id="form" aria-label="Customer profile"></form>
-        <aside id="result" class="card" aria-live="polite">
-          <svg id="gauge" viewBox="0 0 240 130" role="img" aria-label="Churn probability meter"></svg>
-          <div id="pv" class="pv mono">—</div>
-          <h2 id="verdict">Awaiting a profile</h2>
-          <p id="vsub" class="mut">Run the prediction to see the probability against the model's 50% decision line.</p>
-          <p id="err" class="err" role="alert" hidden></p>
-          <div id="wi" hidden><h3>What if…</h3><div id="wi-rows"></div><p class="mut sm">Top 3 changes, each re-scoring this profile with one change. Tap one to apply it to the form.</p></div>
-          <div id="ctx" hidden><h3>Where this customer sits in the training data</h3><div id="ctx-rows"></div><p class="mut sm">Churn rate of each segment · white line = dataset average</p></div>
-        </aside>
-      </div>
-    </section>
-    <section id="dataset" class="view" hidden></section>
-    <section id="model" class="view" hidden></section>
-  </main>
-  <div id="dock" class="dock" hidden>
-    <button id="chip" class="chip" type="button" aria-label="Jump to result"><b>No result yet</b><small>Fill the profile, then run</small></button>
-    <button id="go2" class="go" type="button"><span>Run</span></button>
+  <div id="app">
+    <header class="top">
+      <a class="brand" href="#predict"><svg width="26" height="26" aria-hidden="true">
+          <use href="#logo" />
+        </svg><b>Dropline</b></a>
+      <nav id="tabs" aria-label="Sections"><a href="#predict">Predict</a><a href="#dataset">Dataset</a><a
+          href="#model">Model</a></nav>
+      <span id="status" class="pill" data-s="wait" role="status"><i></i><span>Connecting</span></span>
+    </header>
+    <main>
+      <section id="predict" class="view">
+        <div class="intro">
+          <h1>Will this customer stay?</h1>
+          <p class="mut">Describe a telecom customer and the model returns a churn probability.</p>
+          <p class="ex mut">Start from an example: <button type="button" class="lnk" data-ex="risky">Likely
+              leaver</button> <button type="button" class="lnk" data-ex="loyal">Loyal customer</button></p>
+        </div>
+        <div class="split">
+          <form id="form" aria-label="Customer profile"></form>
+          <aside id="result" class="card" aria-live="polite">
+            <svg id="gauge" viewBox="0 0 240 130" role="img" aria-label="Churn probability meter"></svg>
+            <div id="pv" class="pv mono">—</div>
+            <h2 id="verdict">Awaiting a profile</h2>
+            <p id="vsub" class="mut">Run the prediction to see the probability against the model's 50% decision line.
+            </p>
+            <p id="err" class="err" role="alert" hidden></p>
+            <div id="wi" hidden>
+              <h3>What if…</h3>
+              <div id="wi-rows"></div>
+              <p class="mut sm">Top 3 changes, each re-scoring this profile with one change. Tap one to apply it to the
+                form.</p>
+            </div>
+            <div id="ctx" hidden>
+              <h3>Where this customer sits in the training data</h3>
+              <div id="ctx-rows"></div>
+              <p class="mut sm">Churn rate of each segment · white line = dataset average</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+      <section id="dataset" class="view" hidden></section>
+      <section id="model" class="view" hidden></section>
+    </main>
+    <div id="dock" class="dock" hidden>
+      <button id="chip" class="chip" type="button" aria-label="Jump to result"><b>No result yet</b><small>Fill the
+          profile, then run</small></button>
+      <button id="go2" class="go" type="button"><span>Run</span></button>
+    </div>
   </div>
-</div>
-<script src="api.js"></script>
-<script src="script.js"></script>
+  <script src="api.js"></script>
+  <script src="script.js"></script>
 </body>
+
 </html>

@@ -19,7 +19,7 @@ function showLoading() { showOverlay(); $("#wt").innerHTML = LOADING; $("#wk-err
 function showError(title, msg) { showOverlay(); $("#wt").textContent = title; $("#wk-em").textContent = msg; $("#wk-err").hidden = false; setStatus("off", "API offline"); }
 function intro() {
   let seen = false;
-  try { seen = sessionStorage.getItem(INTRO_KEY) === "1"; sessionStorage.setItem(INTRO_KEY, "1"); } catch {}
+  try { seen = sessionStorage.getItem(INTRO_KEY) === "1"; sessionStorage.setItem(INTRO_KEY, "1"); } catch { }
   if (seen) return;
   showLoading(); setTimeout(() => { if ($("#wk-err").hidden) hideOverlay(); }, INTRO_MS); // never hides an error screen
 }
@@ -29,7 +29,7 @@ async function wakeLoop() {
   T0 = Date.now(); setStatus("wait", "Waking server"); serverUp = false; refreshRun();
   if (API.includes("YOUR-SERVICE")) { showError("API address not set", "Open api.js and replace YOUR-SERVICE.onrender.com with your Render URL."); return false; }
   while (Date.now() - T0 < 18e4) {
-    try { await api.ping(); setStatus("on", "API online"); serverUp = true; refreshRun(); api.insights().catch(() => {}); return true; }
+    try { await api.ping(); setStatus("on", "API online"); serverUp = true; refreshRun(); api.insights().catch(() => { }); return true; }
     catch (e) {
       $("#wk-d").textContent = `Trying ${API} · ${e.kind === "http" ? "HTTP " + e.status : "no response"}` + (API.startsWith("http://") ? " · is uvicorn running?" : "");
       await sleep(2500);
@@ -55,7 +55,7 @@ const G = [
     { k: "multiple_lines", l: "Multiple lines", o: YN, dep: "phone_service", off: "No phone service" },
     { k: "internet_service", l: "Internet service", o: ["DSL", "Fiber optic", "No"] },
     ...[["online_security", "Online security"], ["online_backup", "Online backup"], ["device_protection", "Device protection"],
-      ["tech_support", "Tech support"], ["streaming_tv", "Streaming TV"], ["streaming_movies", "Streaming movies"]]
+    ["tech_support", "Tech support"], ["streaming_tv", "Streaming TV"], ["streaming_movies", "Streaming movies"]]
       .map(([k, l]) => ({ k, l, o: YN, dep: "internet_service", off: NI }))]],
   ["Contract & billing", [
     { k: "contract", l: "Contract", o: ["Month-to-month", "One year", "Two year"] },
@@ -98,9 +98,12 @@ function buildForm() {
 function sync() {
   F.forEach(d => { if (d.dep) { const off = state[d.dep] === "No"; if (off) state[d.k] = d.off; else if (state[d.k] === d.off) state[d.k] = "No"; $(`[data-k=${d.k}]`).classList.toggle("off", off); } });
   if (auto) state.total_charges = +(state.tenure * state.monthly_charges || 0).toFixed(2);
-  F.forEach(d => { const w = $(`[data-k=${d.k}]`); $$("input,select", w).forEach(i => {
-    if (i.type === "radio") { i.checked = String(i.value) === String(state[d.k]); i.disabled = w.classList.contains("off"); }
-    else if (i !== document.activeElement) i.value = state[d.k]; }); });
+  F.forEach(d => {
+    const w = $(`[data-k=${d.k}]`); $$("input,select", w).forEach(i => {
+      if (i.type === "radio") { i.checked = String(i.value) === String(state[d.k]); i.disabled = w.classList.contains("off"); }
+      else if (i !== document.activeElement) i.value = state[d.k];
+    });
+  });
   $("#re").hidden = auto;
 }
 function onInput(e) {
