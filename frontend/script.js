@@ -6,60 +6,42 @@ const RM = matchMedia("(prefers-reduced-motion:reduce)").matches;
 const raf2 = f => requestAnimationFrame(() => requestAnimationFrame(f));
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
 
-/* ============ Wake-up loader (Render free tier) ============ */
-const WAKE_MS = 10000; // full-screen loader time; the server keeps waking in the background after that
-let T0 = 0, dismissT, serverUp = false;
-
+/* ============ Intro loader (once per visit) + background server wake-up ============ */
+// The loader is a fixed intro shown once per browser session. It does not depend on the server:
+// the server is woken in the background, and Run queues (meter sweeps) until it answers.
+const INTRO_MS = 8000, INTRO_KEY = "dropline_intro";
 const LOADING = 'Loading<span class="dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>';
-function openWake() {
-  const w = $("#wake"); clearTimeout(dismissT);
-  if (w.hidden) { w.hidden = false; $("#app").inert = true; }
-  $("#wt").innerHTML = LOADING; $("#wk-err").hidden = true; $("#wk-em").textContent = "The server didn't answer. It may be offline or still starting.";
-  dismissT = setTimeout(softClose, WAKE_MS);
-}
-// After WAKE_MS the loader steps aside; polling continues and Run starts as soon as the server answers.
-function softClose() {
-  if ($("#wake").hidden || !$("#wk-err").hidden) return;
-  $("#wake").hidden = true; $("#app").inert = false;
-}
-async function closeWake() {
-   const w = $("#wake"); $("#wt").textContent = "Ready"; w.classList.add("ok");
-  await sleep(RM ? 0 : 900); w.hidden = true; w.classList.remove("ok"); $("#app").inert = false;
-}
+let T0 = 0, serverUp = false, ready;
 function setStatus(s, t) { const p = $("#status"); p.dataset.s = s; $("span", p).textContent = t; }
+function showOverlay() { const w = $("#wake"); if (w.hidden) { w.hidden = false; $("#app").inert = true; } }
+function hideOverlay() { $("#wake").hidden = true; $("#app").inert = false; }
+function showLoading() { showOverlay(); $("#wt").innerHTML = LOADING; $("#wk-err").hidden = true; }
+function showError(title, msg) { showOverlay(); $("#wt").textContent = title; $("#wk-em").textContent = msg; $("#wk-err").hidden = false; setStatus("off", "API offline"); }
+function intro() {
+  let seen = false;
+  try { seen = sessionStorage.getItem(INTRO_KEY) === "1"; sessionStorage.setItem(INTRO_KEY, "1"); } catch {}
+  if (seen) return;
+  showLoading(); setTimeout(() => { if ($("#wk-err").hidden) hideOverlay(); }, INTRO_MS); // never hides an error screen
+}
 
 // Polls GET / until it answers. Cold-start responses usually lack CORS headers, so a failed fetch just means "not yet".
 async function wakeLoop() {
   T0 = Date.now(); setStatus("wait", "Waking server"); serverUp = false; refreshRun();
-  if (API.includes("YOUR-SERVICE")) { // deployed build with no backend address configured
-    if ($("#wake").hidden) openWake(); 
-    $("#wt").textContent = "API address not set"; $("#wk-em").textContent = "Open api.js and replace YOUR-SERVICE.onrender.com with your Render URL.";
-    $("#wk-err").hidden = false; setStatus("off", "API not set"); return false;
-  }
-  const t = setTimeout(openWake, $("#wake").hidden ? 1000 : 0); // skip the overlay entirely if the server answers fast
+  if (API.includes("YOUR-SERVICE")) { showError("API address not set", "Open api.js and replace YOUR-SERVICE.onrender.com with your Render URL."); return false; }
   while (Date.now() - T0 < 18e4) {
-    try {
-      await api.ping(); clearTimeout(t); clearTimeout(dismissT); setStatus("on", "API online"); serverUp = true; refreshRun(); 
-      if (!$("#wake").hidden) await closeWake();
-      api.insights().catch(() => {}); return true;
-    } catch (e) {
+    try { await api.ping(); setStatus("on", "API online"); serverUp = true; refreshRun(); api.insights().catch(() => {}); return true; }
+    catch (e) {
       $("#wk-d").textContent = `Trying ${API} · ${e.kind === "http" ? "HTTP " + e.status : "no response"}` + (API.startsWith("http://") ? " · is uvicorn running?" : "");
       await sleep(2500);
     }
   }
-  clearTimeout(t);  if ($("#wake").hidden) openWake();  clearTimeout(dismissT);
-  $("#wt").textContent = "Couldn't reach the server"; $("#wk-err").hidden = false; setStatus("off", "API offline"); return false;
+  showError("Couldn't reach the server", "The server didn't answer. It may be offline or still starting."); return false;
 }
 async function wake() {
   try { return await wakeLoop(); }
-  catch (e) {
-    console.error(e); if ($("#wake").hidden) openWake();  clearTimeout(dismissT);
-    $("#wt").textContent = "Couldn't connect"; $("#wk-em").textContent = "Unexpected error: " + (e && e.message || e);
-    $("#wk-err").hidden = false; setStatus("off", "API offline"); return false;
-  }
+  catch (e) { console.error(e); showError("Couldn't connect", "Unexpected error: " + (e && e.message || e)); return false; }
 }
-let ready;
-$("#wk-retry").onclick = () => { $("#wk-err").hidden = true; openWake(); ready = wake(); };
+$("#wk-retry").onclick = () => { showLoading(); ready = wake(); ready.then(ok => ok && hideOverlay()); };
 
 /* ============ Predict form ============ */
 const YN = ["Yes", "No"], NI = "No internet service";
@@ -345,4 +327,4 @@ function route(force) {
 }
 addEventListener("hashchange", () => route());
 
-buildForm(); buildGauge(); ready = wake(); route();
+buildForm(); buildGauge(); intro(); ready = wake(); route();

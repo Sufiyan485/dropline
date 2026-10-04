@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="256" height="256" role="img" aria-label="Dropline logo">
+  <rect width="48" height="48" rx="11" fill="#090c11"/>
+  <g transform="translate(8 8)">
+    <rect x="4" y="18" width="6" height="10" rx="2" fill="#b8f36b"/>
+    <rect x="13" y="11" width="6" height="17" rx="2" fill="#b8f36b"/>
+    <rect x="23" y="5" width="5" height="23" rx="2" fill="none" stroke="#ff6b4a" stroke-width="2" stroke-dasharray="3 3"/>
+  </g>
+</svg>
