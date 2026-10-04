@@ -7,58 +7,39 @@ const raf2 = f => requestAnimationFrame(() => requestAnimationFrame(f));
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
 
 /* ============ Wake-up loader (Render free tier) ============ */
-// Real data from the training set — shown while the server boots, so we never fake progress.
-const PAIRS = [
-  [["Fiber optic internet", 41.89], ["DSL internet", 18.96]],
-  [["Pay by electronic check", 45.29], ["Pay by card autopay", 15.24]],
-  [["First year (0–12 months)", 47.44], ["Years 5–6 (61–72 months)", 6.61]],
-  [["Fiber optic internet", 41.89], ["No internet service", 7.4]],
-  [["Monthly bill 80–100", 37.02], ["Monthly bill 18–40", 11.64]],
-  [["Month-to-month contract", 42.71], ["Two-year contract", 2.83]],
-];
-let qi = 0, score = 0, asked = 0, tick, T0 = 0;
+const WAKE_MS = 10000; // full-screen loader time; the server keeps waking in the background after that
+let T0 = 0, dismissT, serverUp = false;
 
-function quiz() {
-  const q = $("#quiz"), p = PAIRS[qi++ % PAIRS.length].slice().sort(() => Math.random() - .5);
-  q.innerHTML = `<p class="mono mut"></p><h3>Which group churned more in the dataset?</h3><div class="opts"></div><button class="lnk" type="button" hidden>Next question →</button>`;
-  $("p", q).textContent = "While you wait" + (asked ? ` · ${score}/${asked} right` : "");
-  const o = $(".opts", q), nx = $(".lnk", q);
-  p.forEach(([n, v]) => {
-    const b = el("button", "opt", `<span></span><strong class="mono" hidden>${v}%</strong>`);
-    b.type = "button"; b.firstChild.textContent = n; o.append(b);
-    b.onclick = () => {
-      const win = v > p[1 - p.findIndex(x => x[0] === n)][1]; asked++; score += win;
-      $$(".opt", o).forEach((x, i) => { x.disabled = true; x.classList.add(p[i][1] > p[1 - i][1] ? "win" : "lose"); $("strong", x).hidden = false; });
-      b.classList.add("pick"); $("h3", q).textContent = (win ? "Nice call. " : "Surprising, right? ") + "Churn rates from 7,043 customers.";
-      nx.hidden = false; nx.focus(); nx.onclick = quiz;
-    };
-  });
-}
+const LOADING = 'Loading<span class="dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>';
 function openWake() {
-  const w = $("#wake"); clearInterval(tick);
-  if (w.hidden) { w.hidden = false; $("#app").inert = true; quiz(); }
-  $("#wt").textContent = "Waking the server…"; $("#wk-err").hidden = true; $("#wk-em").textContent = "The server didn't answer. It may be offline or still starting.";
-  tick = setInterval(() => { const s = (Date.now() - T0) / 1e3 | 0; $("#wk-t").textContent = `${s / 60 | 0}:${String(s % 60).padStart(2, "0")}`; }, 500);
+  const w = $("#wake"); clearTimeout(dismissT);
+  if (w.hidden) { w.hidden = false; $("#app").inert = true; }
+  $("#wt").innerHTML = LOADING; $("#wk-err").hidden = true; $("#wk-em").textContent = "The server didn't answer. It may be offline or still starting.";
+  dismissT = setTimeout(softClose, WAKE_MS);
+}
+// After WAKE_MS the loader steps aside; polling continues and Run starts as soon as the server answers.
+function softClose() {
+  if ($("#wake").hidden || !$("#wk-err").hidden) return;
+  $("#wake").hidden = true; $("#app").inert = false;
 }
 async function closeWake() {
-  clearInterval(tick); const w = $("#wake"); $("#wt").textContent = "Server is awake"; w.classList.add("ok");
+   const w = $("#wake"); $("#wt").textContent = "Ready"; w.classList.add("ok");
   await sleep(RM ? 0 : 900); w.hidden = true; w.classList.remove("ok"); $("#app").inert = false;
 }
 function setStatus(s, t) { const p = $("#status"); p.dataset.s = s; $("span", p).textContent = t; }
 
 // Polls GET / until it answers. Cold-start responses usually lack CORS headers, so a failed fetch just means "not yet".
 async function wakeLoop() {
-  T0 = Date.now(); let n = 0; setStatus("wait", "Waking server");
+  T0 = Date.now(); setStatus("wait", "Waking server"); serverUp = false; refreshRun();
   if (API.includes("YOUR-SERVICE")) { // deployed build with no backend address configured
-    if ($("#wake").hidden) openWake(); clearInterval(tick);
+    if ($("#wake").hidden) openWake(); 
     $("#wt").textContent = "API address not set"; $("#wk-em").textContent = "Open api.js and replace YOUR-SERVICE.onrender.com with your Render URL.";
     $("#wk-err").hidden = false; setStatus("off", "API not set"); return false;
   }
   const t = setTimeout(openWake, $("#wake").hidden ? 1000 : 0); // skip the overlay entirely if the server answers fast
   while (Date.now() - T0 < 18e4) {
-    $("#wk-n").textContent = ++n;
     try {
-      await api.ping(); clearTimeout(t); setStatus("on", "API online");
+      await api.ping(); clearTimeout(t); clearTimeout(dismissT); setStatus("on", "API online"); serverUp = true; refreshRun(); 
       if (!$("#wake").hidden) await closeWake();
       api.insights().catch(() => {}); return true;
     } catch (e) {
@@ -66,13 +47,13 @@ async function wakeLoop() {
       await sleep(2500);
     }
   }
-  clearTimeout(t); if ($("#wake").hidden) openWake(); clearInterval(tick);
+  clearTimeout(t);  if ($("#wake").hidden) openWake();  clearTimeout(dismissT);
   $("#wt").textContent = "Couldn't reach the server"; $("#wk-err").hidden = false; setStatus("off", "API offline"); return false;
 }
 async function wake() {
   try { return await wakeLoop(); }
   catch (e) {
-    console.error(e); if ($("#wake").hidden) openWake(); clearInterval(tick);
+    console.error(e); if ($("#wake").hidden) openWake();  clearTimeout(dismissT);
     $("#wt").textContent = "Couldn't connect"; $("#wk-em").textContent = "Unexpected error: " + (e && e.message || e);
     $("#wk-err").hidden = false; setStatus("off", "API offline"); return false;
   }
@@ -150,13 +131,21 @@ function onInput(e) {
 $$("[data-ex]").forEach(b => b.onclick = () => { Object.assign(state, EX[b.dataset.ex]); auto = true; sync(); clearErr(); });
 
 async function onSubmit(e) {
-  e.preventDefault(); if (busy) return; busy = true;
-  $$(".go").forEach(b => { b.classList.add("busy"); b.disabled = true; }); clearErr();
+  e.preventDefault(); if (busy) return; busy = true; refreshRun(); clearErr();
+  const sw = setTimeout(startSweep, 400); // warm requests finish before this and never flicker
   try {
+    if (!serverUp && !(await ready)) throw { kind: "network" };
     let r; try { r = await api.predict(state); } catch (x) { if (x.kind !== "network" || !(ready = wake(), await ready)) throw x; r = await api.predict(state); }
     showResult(r);
-  } catch (x) { showErr(x); }
-  finally { busy = false; $$(".go").forEach(b => { b.classList.remove("busy"); b.disabled = false; }); }
+  } catch (x) { stopSweep(true); showErr(x); }
+  finally { clearTimeout(sw); busy = false; refreshRun(); }
+}
+// Run stays clickable while the server wakes: a click queues the prediction and it fires when the server answers.
+function refreshRun() {
+  $$(".go").forEach(b => {
+    b.classList.toggle("busy", busy); b.disabled = busy;
+    $("span", b).textContent = b.id === "go2" ? "Run" : busy && !serverUp ? "Waiting for server…" : !serverUp ? "Run when server is ready" : "Run prediction";
+  });
 }
 function clearErr() { $("#err").hidden = true; $$(".f.bad").forEach(f => f.classList.remove("bad")); }
 function showErr(x) {
@@ -175,12 +164,36 @@ function buildGauge() {
   for (let i = 0; i < TK; i++) { const a = Math.PI * (1 - i / (TK - 1)), c = Math.cos(a), s = Math.sin(a); h += `<line class="tk" x1="${CX + c * 80}" y1="${CY - s * 80}" x2="${CX + c * 100}" y2="${CY - s * 100}"/>`; }
   $("#gauge").innerHTML = h + `<line class="cut" x1="${CX}" y1="${CY - 74}" x2="${CX}" y2="${CY - 112}"/><text x="${CX}" y="6" text-anchor="middle" fill="#8b96a6" font-size="10" font-family="JetBrains Mono,monospace">50% cut-off</text>`;
 }
-function animateTo(p) {
-  const tk = $$(".tk"), pv = $("#pv"), t0 = performance.now(), D = RM ? 0 : 1200;
-  (function f(n) { const k = D ? Math.min(1, (n - t0) / D) : 1, v = p * (1 - Math.pow(1 - k, 3));
-    tk.forEach((t, i) => t.classList.toggle("on", i < Math.round(v * TK))); pv.textContent = (v * 100).toFixed(1) + "%"; if (k < 1) requestAnimationFrame(f); })(t0);
+const IDLE = { v: $("#verdict").textContent, s: $("#vsub").textContent };
+let cur = 0, animId = 0, sweeping = false, sweepRaf = 0;
+const lit = v => { cur = v; $$(".tk").forEach((t, i) => t.classList.toggle("on", i < Math.round(v * TK))); };
+function animateTo(p) { // glides from wherever the meter is now (idle, previous result or mid-sweep) to p
+  const from = cur, pv = $("#pv"), t0 = performance.now(), D = RM ? 0 : 1200, my = ++animId;
+  (function f(n) {
+    if (my !== animId) return;
+    const k = D ? Math.min(1, (n - t0) / D) : 1, e = 1 - Math.pow(1 - k, 3);
+    lit(from + (p - from) * e); pv.textContent = (p * e * 100).toFixed(1) + "%"; if (k < 1) requestAnimationFrame(f);
+  })(t0);
+}
+function revealResult() { // keep the meter in view, scrolling only when its top isn't already visible
+  const top = $("#result").getBoundingClientRect().top;
+  if (top < 80 || top > innerHeight * .6) $("#result").scrollIntoView({ behavior: RM ? "auto" : "smooth", block: "start" });
+}
+// While the request is slow (server waking), the meter swings back and forth instead of showing a spinner.
+function startSweep() {
+  if (sweeping) return; sweeping = true; animId++;
+  $("#result").dataset.v = "wait"; $("#pv").textContent = "…"; $("#verdict").textContent = "Waiting for the server…";
+  $("#vsub").textContent = "Your prediction runs as soon as it answers."; $("#wi").hidden = true; $("#ctx").hidden = true; revealResult();
+  if (RM) { lit(0); return; }
+  const t0 = performance.now(), ph0 = Math.acos(1 - 2 * Math.min(1, Math.max(0, cur))); // start from the current position, no jump
+  (function f(n) { if (!sweeping) return; lit((1 - Math.cos(ph0 + (n - t0) / 1800 * 2 * Math.PI)) / 2); sweepRaf = requestAnimationFrame(f); })(t0);
+}
+function stopSweep(reset) {
+  const was = sweeping; sweeping = false; cancelAnimationFrame(sweepRaf);
+  if (was && reset) { animId++; lit(0); delete $("#result").dataset.v; $("#pv").textContent = "—"; $("#verdict").textContent = IDLE.v; $("#vsub").textContent = IDLE.s; }
 }
 function showResult(r) {
+  stopSweep(false);
   const churn = r.churn_prediction === 1;
   $("#result").dataset.v = churn ? "bad" : "ok";
   $("#verdict").textContent = churn ? "Likely to churn" : "Likely to stay";
@@ -191,9 +204,7 @@ function showResult(r) {
   const id = ++runId, reveal = sleep(RM ? 0 : 1300); setDock(r, churn);
   Promise.all([whatIf(r, id, reveal), api.insights().catch(() => null)])
     .then(([, d]) => { if (id === runId && d) renderCtx(d); });
-  // Bring the meter into view on every screen size, but only when its top isn't already visible
-  const top = $("#result").getBoundingClientRect().top;
-  if (top < 80 || top > innerHeight * .6) $("#result").scrollIntoView({ behavior: RM ? "auto" : "smooth", block: "start" });
+  revealResult();
 }
 const tenureIdx = t => t > 72 ? -1 : Math.max(0, Math.ceil(t / 12) - 1);
 const chargeIdx = (m, E = [18, 40, 60, 80, 100, 120]) => m < 18 || m > 120 ? -1 : Math.max(0, E.findIndex((e, i) => i && m <= e) - 1);

@@ -16,11 +16,8 @@
 <div id="wake" hidden role="dialog" aria-modal="true" aria-labelledby="wt">
   <div class="wk">
     <svg class="scan" viewBox="0 0 32 32" aria-hidden="true"><rect class="b1" x="4" y="18" width="6" height="10" rx="2"/><rect class="b2" x="13" y="11" width="6" height="17" rx="2"/><rect class="b3" x="22" y="4" width="6" height="24" rx="2"/></svg>
-    <h2 id="wt">Waking the server…</h2>
-    <p class="mut">Free hosting naps when nobody's around, so the first request can take up to a minute. <span class="mono"><span id="wk-t">0:00</span> · attempt <span id="wk-n">1</span></span></p>
-    <p id="wk-d" class="mono mut sm"></p>
-    <div id="quiz" class="quiz"></div>
-    <div id="wk-err" hidden><p id="wk-em">The server didn't answer. It may be offline or still starting.</p><button id="wk-retry" class="lnk" type="button">Try again</button></div>
+    <h2 id="wt">Loading<span class="dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></h2>
+    <div id="wk-err" hidden><p id="wk-em">The server didn't answer. It may be offline or still starting.</p><p id="wk-d" class="mono mut sm"></p><button id="wk-retry" class="lnk" type="button">Try again</button></div>
   </div>
 </div>
 
